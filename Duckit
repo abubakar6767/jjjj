@@ -1,6 +1,6 @@
 -- discord.gg/duckhub
 if not game:IsLoaded() then game.Loaded:Wait() end
-script_key = "";
+script_key = "SbhAruisFYufCypcLFFpwiNLbJhTizbG";
 setfpscap(5)
 -- [ USER CONFIGURATION ]
 getgenv().UserConfig = {
@@ -43,7 +43,7 @@ getgenv().UserConfig = {
     ["Min Balance Keep"] = 1,
 
     -- Webhook Settings
-    ["Webhook URL"] = "",
+    ["Webhook URL"] = "https://discord.com/api/webhooks/1537834075057033311/8Xyw87sPr1ya2WUodpofGfW7BfzyT1icJa_Os0u3BTFmOwltR9IWgZM1l43-NLyUAuTV",
     ["Discord ID"] = "",
     ["Webhook Note"] = "",
 
