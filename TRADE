@@ -1,0 +1,28 @@
+-- discord.gg/duckhub
+if not game:IsLoaded() then game.Loaded:Wait() end
+script_key = "lyHcTxkhntdzYDjIaueOlYwZBIbZsFRq";
+setfpscap(5)
+getgenv().UserConfig = {
+    ["Receiver"] = {"Ithanor71154mvbv"},
+    ["Weapons Name"] = {"Icecream", "Ice Blade", "Deathshard"},
+    ["Weapons Rarity"] = {"Godly", "Legendary"},
+    ["Auto Change"] = {
+        ["Farmsync"] = {
+            ["Enabled"] = false,
+            ["Without Replace"] = false,
+            ["Config ID"] = nil,
+            ["Folder From"] = "folder_id_from",
+            ["Folder To"] = "folder_id_to",
+        },
+        ["Yummy"] = {
+            ["Enabled"] = false,
+        },
+        ["Farmerv5"] = {
+            ["Enabled"] = false,
+            ["API Key"] = "ak_xxx",
+            ["Options"] = 1,
+        },
+    },
+}
+loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/a54af07ca504733b525c4f78384dd840.lua"))()
+-- discord.gg/duckhub
