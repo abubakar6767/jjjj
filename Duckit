@@ -1,6 +1,6 @@
 -- discord.gg/duckhub
 if not game:IsLoaded() then game.Loaded:Wait() end
-script_key = "lyHcTxkhntdzYDjIaueOlYwZBIbZsFRq";
+script_key = "EAHxstfJnhMOMoTploufBNnRMWZpmygF";
 setfpscap(5)
 -- [ USER CONFIGURATION ]
 getgenv().UserConfig = {
