@@ -1,0 +1,268 @@
+-- LocalScript
+-- StarterPlayer > StarterPlayerScripts
+-- For your own Roblox experience.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local Network = require(ReplicatedStorage.Packages.Network)
+local DataController = require(
+    ReplicatedStorage.Framework.Features.Data.DataController
+)
+local SettingsConfig = require(
+    ReplicatedStorage.Framework.Features.Settings.SettingsConfig
+)
+
+local rollDice = ReplicatedStorage
+    :WaitForChild("Network")
+    :WaitForChild("RollService")
+    :WaitForChild("RF")
+    :WaitForChild("RollDice")
+
+local sellService = Network.ClientComm.new(
+    ReplicatedStorage.Network,
+    false,
+    "SellService"
+)
+local updateAutoSell = sellService:GetSignal("UpdateAutoSell")
+
+local THRESHOLD = 1_000_000_000_000 -- 1T
+local ROLL_DELAY = 0.25
+
+local rolling = false
+local alive = true
+
+local BG = Color3.fromRGB(20, 24, 35)
+local PANEL = Color3.fromRGB(31, 37, 53)
+local BLUE = Color3.fromRGB(70, 145, 255)
+local GREEN = Color3.fromRGB(48, 190, 125)
+local RED = Color3.fromRGB(220, 75, 85)
+local WHITE = Color3.fromRGB(240, 244, 255)
+local MUTED = Color3.fromRGB(155, 167, 190)
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CompactRollSell"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 100
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+local main = Instance.new("Frame")
+main.Name = "Panel"
+main.Size = UDim2.fromOffset(220, 116)
+main.Position = UDim2.new(1, -235, 0, 100)
+main.BackgroundColor3 = BG
+main.BorderSizePixel = 0
+main.Parent = gui
+
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 9)
+
+local outline = Instance.new("UIStroke")
+outline.Color = Color3.fromRGB(65, 100, 165)
+outline.Thickness = 1
+outline.Parent = main
+
+-- Draggable header
+local header = Instance.new("TextButton")
+header.Name = "DragHeader"
+header.Size = UDim2.new(1, 0, 0, 29)
+header.BackgroundColor3 = PANEL
+header.BorderSizePixel = 0
+header.Text = "  ROLL  /  SELL     â®â®"
+header.TextColor3 = BLUE
+header.TextSize = 12
+header.Font = Enum.Font.GothamBold
+header.TextXAlignment = Enum.TextXAlignment.Left
+header.AutoButtonColor = false
+header.Parent = main
+
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 9)
+
+local dragging = false
+local dragStart
+local startPosition
+local dragInput
+
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPosition = main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+header.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+local function label(text, position, size, color)
+    local object = Instance.new("TextLabel")
+    object.BackgroundTransparency = 1
+    object.Position = position
+    object.Size = size
+    object.Text = text
+    object.TextColor3 = color
+    object.Font = Enum.Font.GothamMedium
+    object.TextSize = 11
+    object.TextXAlignment = Enum.TextXAlignment.Left
+    object.Parent = main
+    return object
+end
+
+local rollStatus = label(
+    "ROLL: STARTING",
+    UDim2.fromOffset(10, 36),
+    UDim2.fromOffset(115, 20),
+    GREEN
+)
+
+local rollButton = Instance.new("TextButton")
+rollButton.Position = UDim2.fromOffset(130, 34)
+rollButton.Size = UDim2.fromOffset(80, 23)
+rollButton.BackgroundColor3 = GREEN
+rollButton.Text = "ON"
+rollButton.TextColor3 = WHITE
+rollButton.TextSize = 11
+rollButton.Font = Enum.Font.GothamBold
+rollButton.Parent = main
+Instance.new("UICorner", rollButton).CornerRadius = UDim.new(0, 5)
+
+label(
+    "SELL THRESHOLD",
+    UDim2.fromOffset(10, 66),
+    UDim2.fromOffset(110, 17),
+    MUTED
+)
+
+local thresholdLabel = label(
+    "1T",
+    UDim2.fromOffset(130, 64),
+    UDim2.fromOffset(80, 20),
+    GREEN
+)
+thresholdLabel.TextXAlignment = Enum.TextXAlignment.Right
+thresholdLabel.Font = Enum.Font.GothamBold
+thresholdLabel.TextSize = 14
+
+local footer = label(
+    "AUTO SELL: SETTING...",
+    UDim2.fromOffset(10, 91),
+    UDim2.fromOffset(200, 17),
+    MUTED
+)
+footer.TextSize = 10
+
+local function applyThreshold()
+    local ok, valid = pcall(function()
+        return SettingsConfig.IsValid("AutoSell", THRESHOLD)
+    end)
+
+    if not ok or not valid then
+        footer.Text = "1T rejected by settings"
+        footer.TextColor3 = RED
+        return false
+    end
+
+    local fired, err = pcall(function()
+        updateAutoSell:Fire(THRESHOLD)
+    end)
+
+    if not fired then
+        footer.Text = "Could not submit threshold"
+        footer.TextColor3 = RED
+        warn(err)
+        return false
+    end
+
+    footer.Text = "AUTO SELL: 1T SUBMITTED"
+    footer.TextColor3 = GREEN
+    return true
+end
+
+-- Attempt to set the threshold when the GUI starts.
+applyThreshold()
+
+-- Reapply when the character respawns.
+player.CharacterAdded:Connect(function()
+    if alive then
+        task.wait(1)
+        applyThreshold()
+    end
+end)
+
+-- Auto Roll starts ON.
+local function startRolling()
+    if rolling then return end
+    rolling = true
+
+    rollButton.Text = "ON"
+    rollButton.BackgroundColor3 = GREEN
+    rollStatus.Text = "ROLL: RUNNING"
+    rollStatus.TextColor3 = GREEN
+
+    task.spawn(function()
+        while rolling and alive and gui.Parent do
+            local ok, err = pcall(function()
+                rollDice:InvokeServer()
+            end)
+
+            if not ok then
+                warn("Auto Roll request failed:", err)
+                rolling = false
+                rollStatus.Text = "ROLL: ERROR"
+                rollStatus.TextColor3 = RED
+                rollButton.Text = "OFF"
+                rollButton.BackgroundColor3 = RED
+                break
+            end
+
+            task.wait(ROLL_DELAY)
+        end
+    end)
+end
+
+rollButton.Activated:Connect(function()
+    if rolling then
+        rolling = false
+        rollButton.Text = "OFF"
+        rollButton.BackgroundColor3 = RED
+        rollStatus.Text = "ROLL: STOPPED"
+        rollStatus.TextColor3 = MUTED
+    else
+        startRolling()
+    end
+end)
+
+-- Start automatically.
+startRolling()
+
+gui.Destroying:Connect(function()
+    alive = false
+    rolling = false
+end)
